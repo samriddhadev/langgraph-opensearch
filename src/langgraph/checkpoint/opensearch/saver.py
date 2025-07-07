@@ -57,18 +57,40 @@ class OpenSearchSaver(BaseCheckpointSaver):
         _build_query_dsl(parameters):
             Builds an OpenSearch query DSL from the provided parameters.
         Example 1: Creating an OpenSearchSaver instance using a connection string
-            config = {"configurable": {"thread_id": "1", "checkpoint_ns": ""}}
-            checkpoint_tuple = saver.get_tuple(config)
-            print(checkpoint_tuple)
-        Example 2: Saving a checkpoint
-        checkpoint = {"id": "abc123", "data": {"key": "value"}}
-        metadata = {"source": "input", "step": 1}
-        new_versions = {}
-        saved_config = saver.put(config, checkpoint, metadata, new_versions)
-        print(saved_config)
-        Example 3: Listing checkpoints
-        Example 4: Deleting checkpoints associated with a thread ID
-        saver.delete_thread(thread_id="12345")
+        >>> with OpenSearchSaver.from_conn_string(client_kwargs={
+        >>>     'hosts': [{'host': os.getenv('OSS_HOST'), 'port': 443}],
+        >>>     'http_auth': awsauth,
+        >>>     'use_ssl': True,
+        >>>     'verify_certs': True,
+        >>>     'connection_class': RequestsHttpConnection
+        >>> }) as checkpointer:
+        >>>     
+        >>>     config = {
+        >>>         'configurable': {
+        >>>             'thread_id': '3'
+        >>>         }
+        >>>     }
+        >>>     graph = graph.compile(checkpointer=checkpointer)
+        >>>     # Run the graph with an initial message
+        >>>     response = graph.invoke(
+        >>>         {
+        >>>             "messages": [
+        >>>                 HumanMessage(content="What is the capital of France?")
+        >>>             ]
+        >>>         },
+        >>>         config
+        >>>     )
+        >>>     print(response)
+        >>> 
+        >>>     response = graph.invoke(
+        >>>         {
+        >>>             "messages": [
+        >>>                 HumanMessage(content="What are its key attractions?")
+        >>>             ]
+        >>>         },
+        >>>         config
+        >>>     )
+        >>>     print(response)
     """
 
     client: OpenSearch
