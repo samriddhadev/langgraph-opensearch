@@ -1,10 +1,10 @@
 # LangGraph OpenSearch
 
-This repository contains OpenSearch implementations for LangGraph, providing both Checkpoint Savers and Stores functionality.
+This repository contains OpenSearch implementations for LangGraph, providing Checkpoint Savers functionality.
 
 ## Overview
 
-The project consists of two main components:
+The project consists of:
 
 1. **OpenSearch Checkpoint Savers**: Implementations for storing and managing checkpoints using OpenSearch
 

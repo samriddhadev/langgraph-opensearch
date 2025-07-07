@@ -5,13 +5,14 @@ from uuid import uuid4
 from typing import (
     Any,
     Optional,
-    Dict
+    Dict,
+    List
 )
 
 from langchain_core.runnables import RunnableConfig
 
 from opensearchpy import OpenSearch
-from opensearchpy.exceptions import NotFoundError
+from opensearchpy.exceptions import NotFoundError, RequestError, TransportError
 from opensearchpy.helpers import bulk
 
 from langgraph.checkpoint.base import (
@@ -215,7 +216,13 @@ class OpenSearchSaver(BaseCheckpointSaver):
         else:
             parameters = {"thread_id": thread_id, "checkpoint_ns": checkpoint_ns}
 
-        result = self._search(index=self.checkpoint_index_name, query=self._build_query_dsl(parameters))
+        result = self._search(
+            index=self.checkpoint_index_name, 
+            query=self._build_query_dsl(parameters),
+            sort=[{"checkpoint_id": "desc"}],  # Sort by index
+            size=1,  # Limit to the most recent checkpoint
+            scroll=False  # Disable scrolling for single result retrieval
+        )
         
         for item in result:
             doc = item["_source"]
@@ -225,7 +232,11 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 "checkpoint_id": doc["checkpoint_id"],
             }
             checkpoint = self.serde.loads(doc["checkpoint"])
-            response = self._search(index=self.writes_index_name, query=self._build_query_dsl(config_values))
+            response = self._search(
+                index=self.writes_index_name, 
+                query=self._build_query_dsl(config_values),
+                sort=[{"checkpoint_id": "desc"}],  # Sort by index
+            )
             serialized_writes = response[0] if response else []
             pending_writes = [
                 (
@@ -301,12 +312,15 @@ class OpenSearchSaver(BaseCheckpointSaver):
             for key, value in filter.items():
                 parameters[f"metadata.{key}"] = dumps_metadata(value)
 
-        # if before is not None:
-        #     parameters["checkpoint_id"] = {
-        #         "$lt": before["configurable"]["checkpoint_id"]}
+        if before is not None:
+            range = {}
+            range["checkpoint_id"] = {
+                "lt": before["configurable"]["checkpoint_id"]}
         result  = self._search(
             index=self.checkpoint_index_name,
-            query=self._build_query_dsl(parameters)
+            query=self._build_query_dsl(parameters, range),
+            sort=[{"checkpoint_id": "desc"}],  # Sort by index
+            size=limit if limit is not None else 0,  # Limit results to specified size
         )
         for item in result:
             doc = item["_source"]
@@ -387,7 +401,11 @@ class OpenSearchSaver(BaseCheckpointSaver):
             "checkpoint_ns": checkpoint_ns,
         }
 
-        response = self._search(index=self.checkpoint_index_name, query=self._build_query_dsl(parameters))
+        response = self._search(
+            index=self.checkpoint_index_name, 
+            query=self._build_query_dsl(parameters),
+            size=1,  # Limit to one result
+        )
         result = response[0]["_source"] if response else None
         serialized_checkpoint = self.serde.dumps(checkpoint)
         type_ = 'json' if isinstance(serialized_checkpoint, str) else 'bytes'
@@ -402,7 +420,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
             self.client.update(
                 index=self.checkpoint_index_name,
                 id=result["id"],
-                body={"doc": doc, "doc_as_upsert": True}
+                body={"doc": doc}
             )
         else:
             doc = {
@@ -455,10 +473,24 @@ class OpenSearchSaver(BaseCheckpointSaver):
         for idx, (channel, value) in enumerate(writes):
             serialized_value = self.serde.dumps(value)
             if set_method == "update":
+                # If using update, we need to ensure the document exists
+                parameters = {
+                    "thread_id": thread_id,
+                    "checkpoint_ns": checkpoint_ns,
+                    "checkpoint_id": checkpoint_id,
+                    "task_id": task_id,
+                    "task_path": task_path,
+                    "idx": WRITES_IDX_MAP.get(channel, idx),
+                }
+                response = self._search(
+                    index=self.writes_index_name,
+                    query=self._build_query_dsl(parameters),
+                    size=1,  # Limit to one result 
+                )
                 op = {
                     "_op_type": set_method,
                     "_index": self.writes_index_name,
-                    "_id": str(uuid4()),
+                    "_id": response[0]["_id"] if response else str(uuid4()),
                     "doc": {
                         "channel": channel,
                         "type": type_,
@@ -503,39 +535,64 @@ class OpenSearchSaver(BaseCheckpointSaver):
             thread_id (str): The thread ID whose checkpoints should be deleted.
         """
         # Delete all checkpoints associated with the thread ID
-        self.checkpoint_collection.delete_many({"thread_id": thread_id})
+        self._delete_by_query_safe(
+            self.client,
+            index=self.checkpoint_index_name,
+            query={
+                "match": {
+                    "thread_id": thread_id
+                }
+            }
+        )
 
         # Delete all writes associated with the thread ID
-        self.writes_collection.delete_many({"thread_id": thread_id})
+        self._delete_by_query_safe(
+            self.client,
+            index=self.writes_index_name,
+            query={
+                "match": {
+                    "thread_id": thread_id
+                }
+            }
+        )
 
-    def _search(self, index: str, query: Dict):
+    def _search(self, 
+                index: str, 
+                query: Dict, 
+                sort: Optional[List[Dict[str, str]]] = None, 
+                size: int = 1000,
+                scroll: bool = True) -> List[Dict[str, Any]]:
         query = {
-            "size": 1000,
+            "size": size,
             "query": query,
-            "sort": [{"_id": "asc"}]  # You must sort on a unique & indexed field
+            "sort": sort if sort else [{"_id": "asc"}]  # You must sort on a unique & indexed field
         }
         all_hits = []
-        search_after = None
-        while True:
-            if search_after:
-                query["search_after"] = search_after
+        if scroll:
+            search_after = None
+            while True:
+                if search_after:
+                    query["search_after"] = search_after
 
+                response = self.client.search(index=index, body=query)
+                hits = response["hits"]["hits"]
+                if not hits:
+                    break
+
+                all_hits.extend(hits)
+                search_after = hits[-1]["sort"]
+        else:
             response = self.client.search(index=index, body=query)
-            hits = response["hits"]["hits"]
-            if not hits:
-                break
-
-            all_hits.extend(hits)
-            search_after = hits[-1]["sort"]
+            all_hits = response["hits"]["hits"]
         return all_hits
 
-    def _build_query_dsl(self, parameters: dict[str, Any]) -> dict[str, Any]:
+    def _build_query_dsl(self, match: Dict[str, Any], range:Dict[str, Any] = None) -> dict[str, Any]:
         """Build OpenSearch query DSL from parameters."""
         q = {}
-        if len(parameters) == 1:
-            key = parameters.keys()[0]
+        if len(match) == 1 and not range:
+            key = match.keys()[0]
             # If only single parameter is provided, return a simple match query
-            q = {"match": {key: parameters[key]}}
+            q = {"match": {key: match[key]}}
         else:
             # Build a more complex query with multiple conditions
             compound_q = {
@@ -543,7 +600,47 @@ class OpenSearchSaver(BaseCheckpointSaver):
                     "must": []
                 }
             }
-            for key in parameters.keys():
-                compound_q["bool"]["must"].append({"match": {key: parameters[key]}})
+            for key in match.keys():
+                compound_q["bool"]["must"].append({"match": {key: match[key]}})
+            if range:
+                compound_q["bool"]["must"].append({"range": range})
             q = compound_q
         return q
+
+    def _delete_by_query_safe(self, client: OpenSearch, index: str, query: dict, scroll: str = "2m", batch_size: int = 500):
+        try:
+            # Try native delete_by_query (works in standard OpenSearch)
+            response = client.delete_by_query(index=index, body={"query": query})
+            return True
+
+        except Exception as e:
+            if not isinstance(e, (RequestError, TransportError)):
+                raise e  # Raise if it's not a known error
+
+        # Fallback: manual scroll and delete
+        deleted = 0
+        scroll_resp = client.search(
+            index=index,
+            body={"query": query},
+            scroll=scroll,
+            size=batch_size,
+            _source=False  # we only need the _id
+        )
+
+        scroll_id = scroll_resp.get("_scroll_id")
+        hits = scroll_resp["hits"]["hits"]
+
+        while hits:
+            actions = [
+                {"_op_type": "delete", "_index": hit["_index"], "_id": hit["_id"]}
+                for hit in hits
+            ]
+            bulk(client, actions)
+            deleted += len(actions)
+
+            scroll_resp = client.scroll(scroll_id=scroll_id, scroll=scroll)
+            scroll_id = scroll_resp.get("_scroll_id")
+            hits = scroll_resp["hits"]["hits"]
+
+        client.clear_scroll(scroll_id=scroll_id)
+        return True
