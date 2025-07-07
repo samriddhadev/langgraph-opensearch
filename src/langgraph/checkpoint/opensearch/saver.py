@@ -422,6 +422,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 id=result["id"],
                 body={"doc": doc}
             )
+            self._try_refresh(self.checkpoint_index_name)
         else:
             doc = {
                 "thread_id": thread_id,
@@ -436,6 +437,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 index=self.checkpoint_index_name,
                 body=doc
             )
+            self._try_refresh(self.checkpoint_index_name)
         return {
             "configurable": {
                 "thread_id": thread_id,
@@ -524,6 +526,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 }
         operations.append(op)
         bulk(self.client, operations)
+        self._try_refresh(self.writes_index_name)
         
     def delete_thread(
         self,
@@ -544,7 +547,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 }
             }
         )
-
+        self._try_refresh(self.checkpoint_index_name)
         # Delete all writes associated with the thread ID
         self._delete_by_query_safe(
             self.client,
@@ -555,6 +558,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 }
             }
         )
+        self._try_refresh(self.writes_index_name)
 
     def _search(self, 
                 index: str, 
@@ -644,3 +648,9 @@ class OpenSearchSaver(BaseCheckpointSaver):
 
         client.clear_scroll(scroll_id=scroll_id)
         return True
+
+    def _try_refresh(self, index: str):
+        try:
+            self.client.indices.refresh(index=index)
+        except (RequestError, TransportError) as e:
+            pass  # Ignore errors if the index does not exist or is not available
