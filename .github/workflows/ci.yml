@@ -1,0 +1,26 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Install dev environment
+        run: hatch env create dev
+
+      - name: Run tests
+        run: hatch run dev:pytest
+
+      - name: Lint with Ruff
+        run: hatch run dev:ruff check .
