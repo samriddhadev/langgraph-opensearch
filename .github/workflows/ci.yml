@@ -1,4 +1,4 @@
-name: CI - Test with OpenSearch
+name: CI - Secure OpenSearch Manual Startup
 
 on:
   push:
@@ -17,23 +17,6 @@ jobs:
       OSS_PASS: ${{ secrets.OSS_ADMIN_PASS }}
       CI: true
 
-    services:
-      opensearch:
-        image: opensearchproject/opensearch:2.13.0
-        ports:
-          - 9200:9200
-        env:
-          discovery.type: single-node
-          bootstrap.memory_lock: "true"
-          OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
-          OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${{ secrets.OSS_ADMIN_PASS }}
-          DISABLE_SECURITY_PLUGIN: "false"
-        options: >-
-          --health-cmd "curl -k -u admin:${{ secrets.OSS_ADMIN_PASS }} https://localhost:9200 || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 20
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,10 +26,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Hatch and dependencies
+      - name: Start OpenSearch container (secure)
         run: |
-          pip install --upgrade hatch
-          hatch env create
+          docker run -d --name opensearch \
+            -p 9200:9200 \
+            -e "discovery.type=single-node" \
+            -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OSS_PASS}" \
+            -e "bootstrap.memory_lock=true" \
+            -e "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" \
+            opensearchproject/opensearch:2.13.0
 
       - name: Wait for OpenSearch to be ready
         run: |
@@ -56,11 +44,19 @@ jobs:
             echo "Still waiting..."
             sleep 5
           done
-          echo "OpenSearch is up!"
+          echo "✅ OpenSearch is up!"
+
+      - name: Install Hatch and dependencies
+        run: |
+          pip install --upgrade hatch
+          hatch env create
 
       - name: Run tests
         run: |
           hatch run pytest --maxfail=1 --disable-warnings
 
-      - name: Done
-        run: echo "✅ Tests complete. Container will be shut down automatically."
+      - name: Stop OpenSearch container
+        if: always()
+        run: |
+          docker stop opensearch
+          docker rm opensearch
