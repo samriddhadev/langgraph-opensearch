@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import datetime
@@ -324,6 +325,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
             ```
         """
         parameters = {}
+        range = {}
         if config is not None:
             if "thread_id" in config["configurable"]:
                 parameters["thread_id"] = config["configurable"]["thread_id"]
@@ -332,17 +334,20 @@ class OpenSearchSaver(BaseCheckpointSaver):
 
         if filter:
             for key, value in filter.items():
-                parameters[f"metadata.{key}"] = dumps_metadata(value)
+                if isinstance(value, dict):
+                    for sub_key, sub_value in value.items():
+                        parameters[f"metadata.{key}.{sub_key}"] = dumps_metadata(sub_value)
+                else:
+                    parameters[f"metadata.{key}"] = dumps_metadata(value)
 
         if before is not None:
-            range = {}
             range["checkpoint_id"] = {
                 "lt": before["configurable"]["checkpoint_id"]}
         result  = self._search(
             index=self.checkpoint_index_name,
             query=self._build_query_dsl(parameters, range),
             sort=[{"checkpoint_id": "desc"}],  # Sort by index
-            size=limit if limit is not None else 0,  # Limit results to specified size
+            size=limit if limit is not None else 1,  # Limit results to specified size
         )
         for item in result:
             doc = item["_source"]
@@ -616,7 +621,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
         """Build OpenSearch query DSL from parameters."""
         q = {}
         if len(match) == 1 and not range:
-            key = match.keys()[0]
+            key = list(match.keys())[0]
             # If only single parameter is provided, return a simple match query
             q = {"match": {key: match[key]}}
         else:
@@ -631,6 +636,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
             if range:
                 compound_q["bool"]["must"].append({"range": range})
             q = compound_q
+        print("OpenSearch query DSL:", json.dumps(q, indent=2))  # Debugging output
         return q
 
     def _delete_by_query_safe(self, client: OpenSearch, index: str, query: dict, scroll: str = "2m", batch_size: int = 500):

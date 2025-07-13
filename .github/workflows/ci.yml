@@ -1,26 +1,66 @@
-name: CI
+name: CI - Test with OpenSearch
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      OSS_HOST: localhost
+      OSS_PORT: 9200
+      OSS_USER: admin
+      OSS_PASS: admin
+      CI: true
+
+    services:
+      opensearch:
+        image: opensearchproject/opensearch:2.13.0
+        ports:
+          - 9200:9200
+        env:
+          discovery.type: single-node
+          plugins.security.disabled: "true"
+          bootstrap.memory_lock: "true"
+          OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+          # If using security plugin, enable these and match test config
+          # OPENSEARCH_INITIAL_ADMIN_PASSWORD: admin
+        options: >-
+          --health-cmd "curl -s http://localhost:9200 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
-      - name: Install Hatch
-        run: pip install hatch
+      - name: Install Hatch and dependencies
+        run: |
+          pip install --upgrade hatch
+          hatch env create
 
-      - name: Install dev environment
-        run: hatch env create dev
+      - name: Wait for OpenSearch to be ready
+        run: |
+          echo "Waiting for OpenSearch..."
+          for i in {1..30}; do
+            curl -s http://localhost:9200 >/dev/null && break
+            echo "Still waiting..."
+            sleep 5
+          done
+          echo "OpenSearch is up!"
 
       - name: Run tests
-        run: hatch run dev:pytest
+        run: |
+          hatch run pytest --maxfail=1 --disable-warnings
 
-      - name: Lint with Ruff
-        run: hatch run dev:ruff check .
+      - name: Done
+        run: echo "✅ Tests complete. OpenSearch container will be cleaned up automatically."
