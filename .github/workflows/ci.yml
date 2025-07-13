@@ -9,11 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     env:
       OSS_HOST: localhost
       OSS_PORT: 9200
       OSS_USER: admin
-      OSS_PASS: admin
+      OSS_PASS: ${{ secrets.OSS_ADMIN_PASS }}
       CI: true
 
     services:
@@ -23,13 +24,12 @@ jobs:
           - 9200:9200
         env:
           discovery.type: single-node
-          plugins.security.disabled: "true"
           bootstrap.memory_lock: "true"
           OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
-          # If using security plugin, enable these and match test config
-          # OPENSEARCH_INITIAL_ADMIN_PASSWORD: admin
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${{ secrets.OSS_ADMIN_PASS }}
+          DISABLE_SECURITY_PLUGIN: "false"
         options: >-
-          --health-cmd "curl -s http://localhost:9200 || exit 1"
+          --health-cmd "curl -k -u admin:${{ secrets.OSS_ADMIN_PASS }} https://localhost:9200 || exit 1"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 20
@@ -52,7 +52,7 @@ jobs:
         run: |
           echo "Waiting for OpenSearch..."
           for i in {1..30}; do
-            curl -s http://localhost:9200 >/dev/null && break
+            curl -k -u admin:"$OSS_PASS" https://localhost:9200 >/dev/null && break
             echo "Still waiting..."
             sleep 5
           done
@@ -63,4 +63,4 @@ jobs:
           hatch run pytest --maxfail=1 --disable-warnings
 
       - name: Done
-        run: echo "✅ Tests complete. OpenSearch container will be cleaned up automatically."
+        run: echo "✅ Tests complete. Container will be shut down automatically."

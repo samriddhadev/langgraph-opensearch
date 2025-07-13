@@ -24,7 +24,7 @@ def client_kwargs():
         return {
             "hosts": [{"host": host, "port": port}],
             "use_ssl": False,
-            "http_auth": (os.environ.get("OSS_USER"), os.environ.get("OSS_PASS")),
+            "http_auth": (os.environ.get("OSS_USER", "admin"), os.environ.get("OSS_PASS", "admin")),
             "verify_certs": False,
             "timeout": 30,
             "max_retries": 3,
