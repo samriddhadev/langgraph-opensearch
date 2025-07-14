@@ -49,7 +49,7 @@ jobs:
       - name: Install Hatch and create dev environment
         run: |
           pip install --upgrade hatch
-          hatch env create dev --install
+          hatch env create dev
   
       - name: Run tests
         run: |
