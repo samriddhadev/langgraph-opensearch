@@ -59,6 +59,10 @@ jobs:
         run: |
           hatch run dev:pytest --maxfail=1 --disable-warnings
 
+      - name: Print OpenSearch logs on failure
+        if: failure()
+        run: docker logs opensearch || true
+
       - name: Stop OpenSearch container
         if: always()
         run: |
