@@ -151,6 +151,11 @@ We welcome contributions! Here's how you can help:
     ```bash
     hatch env create
     ```
+    or
+    ```bash
+    hatch shell
+    ```
+
 
 ### Contribution Guidelines
 
