@@ -45,7 +45,7 @@ jobs:
               break
             fi
             echo "⏳ OpenSearch not ready yet... retrying in 5s"
-            sleep 5 * i
+            sleep 5
           done
           echo "⚠️ OpenSearch readiness timeout reached after 30 tries" >&2
 
