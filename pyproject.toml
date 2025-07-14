@@ -27,7 +27,7 @@ package-mode = true
 sources = ["src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["langgraph"]
+packages = ["src/langgraph"]
 
 [tool.hatch.envs.dev]
 dependencies = [
