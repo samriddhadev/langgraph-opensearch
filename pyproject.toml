@@ -42,6 +42,7 @@ dev = [
 
 [tool.hatch.metadata]
 allow-direct-references = true
+package-mode = true
 
 [tool.hatch.build]
 sources = ["src"]
