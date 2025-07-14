@@ -38,13 +38,17 @@ jobs:
 
       - name: Wait for OpenSearch to be ready
         run: |
-          echo "Waiting for OpenSearch..."
+          echo "Waiting for OpenSearch to be available..."
           for i in {1..30}; do
-            curl -k -u admin:"$OSS_PASS" https://localhost:9200 >/dev/null && break
-            echo "Still waiting..."
+            if curl -k -u admin:"$OSS_PASS" https://localhost:9200 >/dev/null 2>&1; then
+              echo "✅ OpenSearch is up!"
+              break
+            fi
+            echo "⏳ OpenSearch not ready yet... retrying in 5s"
             sleep 5
           done
-          echo "✅ OpenSearch is up!"
+          echo "⚠️ OpenSearch readiness timeout reached after 30 tries" >&2
+
 
       - name: Install Hatch and create dev environment
         run: |
