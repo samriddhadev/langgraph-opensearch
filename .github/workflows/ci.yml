@@ -49,12 +49,8 @@ jobs:
       - name: Install Hatch and create dev environment
         run: |
           pip install --upgrade hatch
-          hatch env create dev
-          hatch env show
-
-      - name: Confirm pytest is installed
-        run: hatch run dev:pip show pytest
-
+          hatch env create dev --install
+  
       - name: Run tests
         run: |
           hatch run dev:pytest --maxfail=1 --disable-warnings

@@ -27,7 +27,7 @@ package-mode = true
 sources = ["src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/langgraph"]
+packages = ["langgraph"]
 
 [tool.hatch.envs.dev]
 dependencies = [
@@ -49,6 +49,7 @@ dependencies = [
   "boto3>=1.29.6",
   "requests-aws4auth>=1.2.3"
 ]
+install = true
 
 [tool.ruff]
 lint.select = ["E", "F", "UP", "B", "I"]
