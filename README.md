@@ -148,9 +148,9 @@ We welcome contributions! Here's how you can help:
 
 2. Install dependencies:
 
-   ```bash
-   `poetry install --all-extras`
-   ```
+    ```bash
+    hatch env create
+    ```
 
 ### Contribution Guidelines
 
