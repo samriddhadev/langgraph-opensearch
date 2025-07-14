@@ -32,7 +32,7 @@ def wait_for_opensearch():
     user = os.environ.get("OSS_USER", "admin")
     password = os.environ.get("OSS_PASS", "admin")
 
-    scheme = "https" if is_ci else "http"
+    scheme = "http"
     base_url = f"{scheme}://{host}:{port}"
     health_url = urljoin(base_url, "/")
 
