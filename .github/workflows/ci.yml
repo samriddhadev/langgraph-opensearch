@@ -53,7 +53,7 @@ jobs:
 
       - name: Run tests
         run: |
-          hatch run dev:pytest --maxfail=1 --disable-warnings
+          hatch shell --command 'pytest --maxfail=1 --disable-warnings'
 
       - name: Stop OpenSearch container
         if: always()
