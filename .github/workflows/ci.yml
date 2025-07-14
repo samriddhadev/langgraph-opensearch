@@ -49,11 +49,11 @@ jobs:
       - name: Install Hatch and dependencies
         run: |
           pip install --upgrade hatch
-          hatch env create
+          hatch env create dev
 
       - name: Run tests
         run: |
-          hatch shell --command 'pytest --maxfail=1 --disable-warnings'
+          hatch run dev:pytest --maxfail=1 --disable-warnings
 
       - name: Stop OpenSearch container
         if: always()
