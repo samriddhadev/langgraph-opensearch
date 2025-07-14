@@ -32,7 +32,7 @@ def wait_for_opensearch():
     user = os.environ.get("OSS_USER", "admin")
     password = os.environ.get("OSS_PASS", "admin")
 
-    scheme = "http"
+    scheme = "https"
     base_url = f"{scheme}://{host}:{port}"
     health_url = urljoin(base_url, "/")
 
@@ -71,7 +71,7 @@ def client_kwargs():
         # CI or build system
         return {
             "hosts": [{"host": host, "port": port}],
-            "use_ssl": False,
+            "use_ssl": True,
             "http_auth": (os.environ.get("OSS_USER", "admin"), os.environ.get("OSS_PASS", "admin")),
             "verify_certs": False,
             "timeout": 30,
