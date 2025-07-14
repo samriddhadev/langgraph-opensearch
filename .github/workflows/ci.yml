@@ -46,10 +46,14 @@ jobs:
           done
           echo "✅ OpenSearch is up!"
 
-      - name: Install Hatch and dependencies
+      - name: Install Hatch and create dev environment
         run: |
           pip install --upgrade hatch
           hatch env create dev
+          hatch env show
+
+      - name: Debug: Confirm pytest is installed
+        run: hatch run dev:pip show pytest
 
       - name: Run tests
         run: |
