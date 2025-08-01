@@ -1,7 +1,7 @@
 import json
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from typing import (
     Any,
@@ -434,6 +434,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
             size=1,  # Limit to one result
         )
         result = response[0]["_source"] if response else None
+        id = response[0]['_id'] if response else str(uuid4())
         serialized_checkpoint = self.serde.dumps(checkpoint)
         type_ = 'json' if isinstance(serialized_checkpoint, str) else 'bytes'
         if result:
@@ -442,11 +443,11 @@ class OpenSearchSaver(BaseCheckpointSaver):
                 "type": type_,
                 "checkpoint": serialized_checkpoint,
                 "metadata": dumps_metadata(metadata),
-                "created_at": datetime.now(),
+                "created_at": datetime.now(tz=timezone.utc),
             }
             self.client.update(
                 index=self.checkpoint_index_name,
-                id=result["id"],
+                id=id,
                 body={"doc": doc}
             )
             self._try_refresh(self.checkpoint_index_name)
@@ -530,7 +531,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                         "task_id": task_id,
                         "task_path": task_path,
                         "idx": WRITES_IDX_MAP.get(channel, idx),
-                        "created_at": datetime.now(),
+                        "created_at": datetime.now(tz=timezone.utc),
                     }
                 }
             else:
@@ -548,7 +549,7 @@ class OpenSearchSaver(BaseCheckpointSaver):
                         "task_id": task_id,
                         "task_path": task_path,
                         "idx": WRITES_IDX_MAP.get(channel, idx),
-                        "created_at": datetime.now(),
+                        "created_at": datetime.now(tz=timezone.utc),
                     }
                 }
         operations.append(op)
@@ -636,7 +637,6 @@ class OpenSearchSaver(BaseCheckpointSaver):
             if range:
                 compound_q["bool"]["must"].append({"range": range})
             q = compound_q
-        print("OpenSearch query DSL:", json.dumps(q, indent=2))  # Debugging output
         return q
 
     def _delete_by_query_safe(self, client: OpenSearch, index: str, query: dict, scroll: str = "2m", batch_size: int = 500):
