@@ -70,7 +70,6 @@ def client_kwargs():
     host = os.environ.get("OSS_HOST", "localhost")
     port = int(os.environ.get("OSS_PORT", "9200"))
     use_ssl = True if os.environ.get("CI", "true").lower() == "true" else False
-    print(f"using OpenSearch at {host}:{port} (SSL: {use_ssl})")
 
     return {
         "hosts": [{"host": host, "port": port}],

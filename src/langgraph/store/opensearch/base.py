@@ -584,8 +584,7 @@ class OpenSearchStore(BaseStore):
                 if not exists:
                     to_set["created_at"] = now
                 if self.index_config:
-                    to_set[self.index_config.vector_field] = vectors[v]
-                    to_set["namespace_prefix"] = self._denormalize_path(op.namespace)
+                    to_set[self.index_config["vector_field"]] = vectors[v]
                     v += 1
 
                 # Add the update operation to the bulk request (correct OpenSearch bulk format)
@@ -715,7 +714,7 @@ class OpenSearchStore(BaseStore):
             query_vector = self.embeddings.embed_query(query)
             dsl["bool"]["must"].append({
                 "knn": {
-                    self.index_config.vector_field: {
+                    self.index_config["vector_field"]: {
                         "vector": query_vector,
                         "k": limit
                     }
@@ -731,7 +730,7 @@ class OpenSearchStore(BaseStore):
                 dsl = q["query"]
             else:
                 dsl["bool"]["must"].append(q)
-                
+        
         results = self._search(
             index=self.index_name,
             query={
@@ -753,18 +752,6 @@ class OpenSearchStore(BaseStore):
             )
             for res in results
         ]
-
-    def _denormalize_path(self, paths: Union[tuple[str, ...], list[str]]) -> list[str]:
-        """Create list of path parents, for use in $vectorSearch filter.
-
-        ???+ example "Example"
-        ```python
-        namespace = ('parent', 'child', 'pet')
-        prefixes=store_mdb.denormalize_path(namespace)
-        assert prefixes == ['parent', 'parent/child', 'parent/child/pet']
-        ```
-        """
-        return [self.sep.join(paths[:i]) for i in range(1, len(paths) + 1)]
 
     def _extract_texts(self, put_ops: Optional[list[PutOp]]) -> list[str]:
         """Extract text to embed according to index config."""

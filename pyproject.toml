@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langgraph-opensearch"
-version = "0.1.4.32"
+version = "0.1.5"
 description = "Library with an OpenSearch implementation of LangGraph checkpoint saver."
 readme = "README.md"
 requires-python = ">=3.12,<4"
@@ -32,6 +32,7 @@ packages = ["src/langgraph"]
 [tool.hatch.envs.dev]
 dependencies = [
   "anyio>=4.4.0",
+  "langchain>=0.3.20",
   "langchain-core>=0.3.55",
   "langchain-ollama>=0.2.2",
   "langchain-openai>=0.2.14",
