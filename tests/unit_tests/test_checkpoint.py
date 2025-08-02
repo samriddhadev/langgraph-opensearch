@@ -18,7 +18,7 @@ OSS_PORT = int(os.environ.get("OSS_PORT", "9200"))
 CHECKPOINT_INDEX_NAME = "test_checkpoints"
 CHECKPOINT_WRITER_INDEX_NAME = "test_writes_checkpoints"
 
-def test_search(input_data: dict[str, Any], client_kwargs: Dict[str, Any]) -> None:
+def test_search(input_checkpoint_data: dict[str, Any], client_kwargs: Dict[str, Any]) -> None:
     """
     Test the functionality of the `list` and `put` methods in the `OpenSearchSaver` class.
 
@@ -37,7 +37,7 @@ def test_search(input_data: dict[str, Any], client_kwargs: Dict[str, Any]) -> No
     - Ensures the metadata and configurations of the returned checkpoints match the expected values.
 
     Args:
-         input_data (dict[str, Any]): A dictionary containing the configurations, checkpoints, and metadata
+         input_checkpoint_data (dict[str, Any]): A dictionary containing the configurations, checkpoints, and metadata
          required for testing. Expected keys include:
               - "config_1", "config_2", "config_3": Configuration data for the checkpoints.
               - "chkpnt_1", "chkpnt_2", "chkpnt_3": Checkpoint data to be saved.
@@ -61,21 +61,21 @@ def test_search(input_data: dict[str, Any], client_kwargs: Dict[str, Any]) -> No
             writes_index_name=CHECKPOINT_WRITER_INDEX_NAME) as saver:
         # save checkpoints
         saver.put(
-            input_data["config_1"],
-            input_data["chkpnt_1"],
-            input_data["metadata_1"],
+            input_checkpoint_data["config_1"],
+            input_checkpoint_data["chkpnt_1"],
+            input_checkpoint_data["metadata_1"],
             {},
         )
         saver.put(
-            input_data["config_2"],
-            input_data["chkpnt_2"],
-            input_data["metadata_2"],
+            input_checkpoint_data["config_2"],
+            input_checkpoint_data["chkpnt_2"],
+            input_checkpoint_data["metadata_2"],
             {},
         )
         saver.put(
-            input_data["config_3"],
-            input_data["chkpnt_3"],
-            input_data["metadata_3"],
+            input_checkpoint_data["config_3"],
+            input_checkpoint_data["chkpnt_3"],
+            input_checkpoint_data["metadata_3"],
             {},
         )
 
@@ -91,11 +91,11 @@ def test_search(input_data: dict[str, Any], client_kwargs: Dict[str, Any]) -> No
 
         search_results_1 = list(saver.list(None, filter=query_1))
         assert len(search_results_1) == 1
-        assert search_results_1[0].metadata == input_data["metadata_1"]
+        assert search_results_1[0].metadata == input_checkpoint_data["metadata_1"]
 
         search_results_2 = list(saver.list(None, filter=query_2))
         assert len(search_results_2) == 1
-        assert search_results_2[0].metadata == input_data["metadata_2"]
+        assert search_results_2[0].metadata == input_checkpoint_data["metadata_2"]
 
         search_results_3 = list(saver.list(None, filter=query_3))
         assert len(search_results_3) == 3

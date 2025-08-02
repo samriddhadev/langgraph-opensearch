@@ -14,6 +14,7 @@ from langgraph.checkpoint.base import (
     empty_checkpoint,
 )
 
+
 @pytest.fixture(scope="session", autouse=True)
 def wait_for_opensearch():
     """
@@ -49,7 +50,8 @@ def wait_for_opensearch():
                 print(f"OpenSearch is available after {attempt} attempt(s)")
                 return
             else:
-                print(f"OpenSearch responded with {response.status_code}, retrying...")
+                print(
+                    f"OpenSearch responded with {response.status_code}, retrying...")
         except Exception as e:
             print(f"Attempt {attempt}/{max_attempts} failed: {e}")
 
@@ -59,6 +61,7 @@ def wait_for_opensearch():
 
     pytest.exit("OpenSearch did not respond after maximum retry attempts.")
 
+
 @pytest.fixture(scope="session")
 def client_kwargs():
     """
@@ -66,37 +69,20 @@ def client_kwargs():
     """
     host = os.environ.get("OSS_HOST", "localhost")
     port = int(os.environ.get("OSS_PORT", "9200"))
+    use_ssl = True if os.environ.get("CI", "true").lower() == "true" else False
 
-    if os.environ.get("CI", "false").lower() == "true":
-        # CI or build system
-        return {
-            "hosts": [{"host": host, "port": port}],
-            "use_ssl": True,
-            "http_auth": (os.environ.get("OSS_USER", "admin"), os.environ.get("OSS_PASS", "admin")),
-            "verify_certs": False,
-            "timeout": 30,
-            "max_retries": 3,
-        }
-    else:
-        # Local development
-        from opensearchpy import RequestsHttpConnection
-        from requests_aws4auth import AWS4Auth
-        import boto3
-        region = os.getenv('AWS_REGION', 'us-east-1')   # Default region if not set
-        session = boto3.Session()
-        credentials = session.get_credentials()
-        awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
-        return {
-            'hosts': [{'host': os.getenv('OSS_HOST'), 'port': 443}],
-            'http_auth': awsauth,
-            'use_ssl': True,
-            'verify_certs': True,
-            'connection_class': RequestsHttpConnection
-        }
+    return {
+        "hosts": [{"host": host, "port": port}],
+        "use_ssl": use_ssl,
+        "http_auth": (os.environ.get("OSS_USER", "admin"), os.environ.get("OSS_PASS", "admin")),
+        "verify_certs": False,
+        "timeout": 30,
+        "max_retries": 3,
+    }
 
 
 @pytest.fixture(scope="session")
-def input_data() -> dict:
+def input_checkpoint_data() -> dict:
     """Setup and store conveniently in a single dictionary."""
     inputs: dict[str, Any] = {}
 
