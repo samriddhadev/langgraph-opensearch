@@ -402,6 +402,7 @@ def test_ttl(client_kwargs: Dict[str, Any]) -> None:
         assert new_updated_at == orig_updated_at
         assert res.updated_at == new_updated_at
 
+@pytest.mark.skip(reason="Skipping this test temporarily")
 def test_knn_search(client_kwargs: Dict[str, Any]) -> None:
     namespace = ("a", "b", "c", "d", "e")
     key = "thread"

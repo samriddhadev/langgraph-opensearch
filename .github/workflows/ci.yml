@@ -15,6 +15,7 @@ jobs:
       OSS_PORT: 9200
       OSS_USER: admin
       OSS_PASS: ${{ secrets.OSS_ADMIN_PASS }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       CI: true
 
     steps:
